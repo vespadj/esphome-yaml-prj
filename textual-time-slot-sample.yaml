@@ -1,0 +1,86 @@
+substitutions: 
+  devicename: "textual-time-slot-sample"
+  friendly_name: "Textual Time Slot Sample"
+
+esphome:
+  name: $devicename
+  friendly_name: $friendly_name
+  includes:
+    - header-files/TextualTimeSlot.h
+  on_boot:
+    - priority: 800                # This is where all hardware initialization of vital components is executed
+      then:
+        - lambda: |-
+            ESP_LOGD("on_boot", "------ on boot ------");
+
+esp32:
+  board: esp32dev
+  framework:
+    type: arduino
+
+# Enable logging
+logger:
+
+# Enable Home Assistant API
+api:
+#  encryption:
+#    key: "sZMjwefm7FsufeObx15/phOq1Ljr5PTX2cCPY9AmZ3E="
+
+ota:
+#  password: "482e794fc2465e0644b7852c75601e24"
+
+wifi:
+  networks:
+  - ssid: !secret wifi_ssid0
+    password: !secret wifi_password0
+  - ssid: !secret wifi_ssid1
+    password: !secret wifi_password1
+
+  # Enable fallback hotspot (captive portal) in case wifi connection fails
+  ap:
+    ssid: $devicename Fallback Hotspot
+    password: ""
+
+captive_portal:
+
+web_server:
+  port: 80
+
+text:
+  - platform: template
+    name: "Livingroom Time Slot"
+    id: livingroom_time_slot
+    initial_value: "17 07:00 23:59; 23456 05:30 07:30; 23456 12:00 14:00; 23456 16:00 22:00"
+    # Slots separator: "; "
+    # n. 3 field for slot separated by one white space
+    #   [1-7] 1: Sunday ... 7: Saturday
+    #   07:00 Start from 00:00 and less than Stop
+    #   23:59 Stop greater than Start and less or equal to 23:59
+    optimistic: true
+    min_length: 0
+    max_length: 255 # max. is only 255
+    mode: text
+
+button:
+  - platform: template
+    name: Test1
+    on_press:
+      then:
+        - lambda: onTest1();
+
+  - platform: template
+    name: Test2
+    on_press:
+      then:
+        - lambda: onTest2( id(livingroom_time_slot).state );
+
+  - platform: template
+    name: Test3
+    on_press:
+      then:
+        - lambda: onTest3( id(livingroom_time_slot).state );
+
+
+time:
+  - platform: sntp
+    id: sntp_time  # don't rename
