@@ -20,6 +20,7 @@ esp32:
 
 # Enable logging
 logger:
+  level: VERY_VERBOSE # DEBUG , VERY_VERBOSE
 
 # Enable Home Assistant API
 api:
@@ -38,7 +39,7 @@ wifi:
 
   # Enable fallback hotspot (captive portal) in case wifi connection fails
   ap:
-    ssid: $devicename Fallback Hotspot
+    ssid: Test Fallback Hotspot
     password: ""
 
 captive_portal:
@@ -63,24 +64,35 @@ text:
 
 button:
   - platform: template
-    name: Test1
+    name: 1 Test Date and Time
     on_press:
       then:
-        - lambda: onTest1();
+        - lambda: print_date_time();
 
   - platform: template
-    name: Test2
+    name: 2 Test strSplit
     on_press:
       then:
-        - lambda: onTest2( id(livingroom_time_slot).state );
+        - lambda: test_strSplit( id(livingroom_time_slot).state );
 
   - platform: template
-    name: Test3
+    name: 3 Test now is in time slots
     on_press:
       then:
-        - lambda: onTest3( id(livingroom_time_slot).state );
+        if:
+          condition:
+            lambda: return isInTimeSlots( id(livingroom_time_slot).state );
+          then:
+            - switch.turn_on: livingroom_relay
+          else:
+            - switch.turn_off: livingroom_relay
 
+switch:
+  - platform: gpio
+    pin: 25
+    name: "Living Relay"
+    id: livingroom_relay
 
 time:
   - platform: sntp
-    id: sntp_time  # don't rename
+    id: sntp_time  # don't rename this

@@ -17,7 +17,7 @@ bool isDayInRange(int day, const std::vector<int> &days)
 {
   for (int d : days)
   {
-    ESP_LOGD("TextualTimeSlot.h", "    day %d", d);
+    ESP_LOGVV("TextualTimeSlot.h", "    day %d", d);
     if (day == d)
     {
       return true;
@@ -121,52 +121,48 @@ bool isInTimeSlots(const std::string &x)
 
   for (const auto &slot : timeSlots)
   {
-    ESP_LOGD("TextualTimeSlot.h", "- iterating slot:");
-    ESP_LOGD("TextualTimeSlot.h", "  - isDayInRange");
+    ESP_LOGVV("TextualTimeSlot.h", "- iterating slot:");
+    ESP_LOGVV("TextualTimeSlot.h", "  - isDayInRange");
     if (isDayInRange(currentDay, slot.days))
     {
-      ESP_LOGD("TextualTimeSlot.h", "  - isTimeInRange");
+      ESP_LOGVV("TextualTimeSlot.h", "  - isTimeInRange");
       if (isTimeInRange(formatTime(currentTime), slot))
       {
+        ESP_LOGD("TextualTimeSlot.h", "result: true");
         return true;
       }
     }
   }
 
+  ESP_LOGD("TextualTimeSlot.h", "result: false");
   return false;
 }
 
-void onTest3(const std::string &x)
+void print_date_time()
 {
-  std::string result = isInTimeSlots(x) ? "true" : "false";
-  ESP_LOGD("TextualTimeSlot.h", "result: %s", result.c_str());
-}
-
-void onTest1()
-{
-  // ESP_LOGI("TextualTimeSlot.h", "Value of my text %s", id(my_text).state.c_str());
-
   // Check if the current day is in the allowed days
   // Assuming now is in the format "hh:mm"
   auto time = id(sntp_time).now();
   int currentDay = time.day_of_week; // [1-7] 1 sunday ... 7 saturday
-
-  ESP_LOGI("TextualTimeSlot.h", "time %d", time);
+  
+  // %A Full weekday name
+  ESP_LOGI("TextualTimeSlot.h", "currentTime %s", time.strftime("%A %Y-%m-%d %H:%M").c_str());
   ESP_LOGI("TextualTimeSlot.h", "currentDay %d", currentDay);
   // isDayInRange(currentDay, timeSlot.days
 }
 
-void onTest2(std::string x)
+void test_strSplit(std::string x)
 {
+  ESP_LOGI("TextualTimeSlot.h", "Test the strSplit function:");
+
   // Test the strSplit function
   std::string inputString = x;
   std::string separator = "; ";
   std::vector<std::string> strSlots = strSplit(inputString, separator);
 
   // Log the result
-  ESP_LOGD("TextualTimeSlot.h", "Results:");
   for (const auto &word : strSlots)
   {
-    ESP_LOGD("TextualTimeSlot.h", "- __%s__", word.c_str());
+    ESP_LOGI("TextualTimeSlot.h", "- __%s__", word.c_str());
   }
 }
