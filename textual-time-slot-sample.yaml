@@ -47,20 +47,9 @@ captive_portal:
 web_server:
   port: 80
 
-text:
-  - platform: template
-    name: "Livingroom Time Slot"
-    id: livingroom_time_slot
-    initial_value: "17 07:00 23:59; 23456 05:30 07:30; 23456 12:00 14:00; 23456 16:00 22:00"
-    # Slots separator: "; "
-    # n. 3 field for slot separated by one white space
-    #   [1-7] 1: Sunday ... 7: Saturday
-    #   07:00 Start from 00:00 and less than Stop
-    #   23:59 Stop greater than Start and less or equal to 23:59
-    optimistic: true
-    min_length: 0
-    max_length: 255 # max. is only 255
-    mode: text
+
+binary_sensor:
+
 
 button:
   - platform: template
@@ -73,26 +62,144 @@ button:
     name: 2 Test strSplit
     on_press:
       then:
-        - lambda: test_strSplit( id(livingroom_time_slot).state );
+        - lambda: test_strSplit( id(livingroom_time_slots).state );
 
   - platform: template
     name: 3 Test now is in time slots
     on_press:
       then:
-        if:
-          condition:
-            lambda: return isInTimeSlots( id(livingroom_time_slot).state );
-          then:
-            - switch.turn_on: livingroom_relay
-          else:
-            - switch.turn_off: livingroom_relay
+        - button.press: check_n_set_livingroom
+  
+  # Definition of virtual internal button(s) for trigging check and set
+  # of the output state, call this "button.press" at every event that change a state:
+  # switches, sensors and also time.on_time (1 min) for get entering or leaving time slots.
+  - platform: template
+    internal: true
+    id: check_n_set_livingroom
+    name: check_n_set_livingroom
+    # Operating logic represented as an 
+    # electrical circuit of the analogue equivalent.
+    # 
+    # -+-----+-------------- L
+    #  |     |
+    #  \ B   \ Enable
+    #  | o   |
+    #  | o   \ Main Sensor
+    #  | s   |
+    #  | t   \ Time Slots
+    #  |     |
+    #  +-----+
+    #        |
+    #   +----+----+
+    #   |  Output |
+    #   +----+----+
+    #        |
+    #  ------+-------------- N
+    #
+    on_press:
+      if:
+        condition:
+          or:
+            - switch.is_on: boost_livingroom
+            - and:
+              - switch.is_on: enable_livingroom
+              - switch.is_on: main_sensor_livingroom # or binary_sensor.is_on
+              - lambda: return isInTimeSlots( id(livingroom_time_slots).state );
+        then:
+          - switch.turn_on: livingroom_relay
+        else:
+          - switch.turn_off: livingroom_relay
+
 
 switch:
+
+  - platform: template
+    name: "Boost Livingroom"
+    id: boost_livingroom
+    icon: mdi:fire
+    optimistic: True
+    restore_mode: ALWAYS_OFF
+    on_turn_on:
+      then:
+        - button.press: check_n_set_livingroom
+        - delay: 120 min
+        - switch.turn_off: boost_livingroom
+        - button.press: check_n_set_livingroom
+    on_turn_off:
+      then:
+        - button.press: check_n_set_livingroom
+
+  - platform: template
+    name: "Enable Livingroom"
+    id: enable_livingroom
+    icon: mdi:toggle-switch
+    optimistic: True
+    restore_mode: RESTORE_DEFAULT_ON
+    on_turn_on:
+      then:
+        - button.press: check_n_set_livingroom
+    on_turn_off:
+      then:
+        - button.press: check_n_set_livingroom
+
+  # in a real case this will be a binary_sensor,
+  # in this test case a switch is used.
+  - platform: template
+    name: "Main Sensor Livingroom"
+    id: main_sensor_livingroom
+    icon: mdi:thermostat
+    optimistic: True
+    # for switch:
+    on_turn_on:
+      then:
+        - button.press: check_n_set_livingroom
+    on_turn_off:
+      then:
+        - button.press: check_n_set_livingroom
+    # for binary_sensor:
+    # on_state:
+    #   then:
+    #     - button.press: check_n_set_livingroom
+
+  # the output:
   - platform: gpio
     pin: 25
-    name: "Living Relay"
+    name: "Livingroom Relay"
     id: livingroom_relay
+
+
+text:
+  - platform: template
+    name: "Livingroom Time Slots"
+    id: livingroom_time_slots
+    initial_value: "17 07:00 23:59; 23456 05:30 07:30; 23456 12:00 14:00; 23456 16:00 22:00"
+    # Slots separator: "; "
+    # n. 3 field for slot separated by one white space
+    #   [1-7] 1: Sunday ... 7: Saturday
+    #   07:00 Start from 00:00 and less than Stop
+    #   23:59 Stop greater than Start and less or equal to 23:59
+    optimistic: true
+    min_length: 0
+    max_length: 255 # max. is only 255
+    mode: text
+    on_value:
+      then:
+        - button.press: check_n_set_livingroom
+
 
 time:
   - platform: sntp
     id: sntp_time  # don't rename this
+    # in case of manual_ip, dns1 and dns2 must be setted
+    on_time_sync:
+      if:
+        condition:
+          time.has_time:
+        then:
+          - logger.log: Time has been set and is valid!
+    on_time:
+      # Called Every 1 minute, after syncronization
+      - seconds: 0
+        minutes: /1
+        then:
+          - button.press: check_n_set_livingroom
