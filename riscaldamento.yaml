@@ -1,0 +1,633 @@
+substitutions: 
+  devicename: "riscaldamento"
+  friendly_name: "Riscaldamento"
+
+esphome:
+  name: $devicename
+  friendly_name: $friendly_name
+  includes:
+    - header-files/TextualTimeSlot.h
+  on_boot:
+    - priority: 800                # This is where all hardware initialization of vital components is executed
+      then:
+        - lambda: |-
+            ESP_LOGD("on_boot", "------ on boot ------");
+
+esp32:
+  board: esp32dev
+  framework:
+    type: arduino
+
+# Enable logging
+logger:
+  # level: # DEBUG , VERY_VERBOSE
+
+# Enable Home Assistant API
+api:
+#  encryption:
+#    key: "sZMjwefm7FsufeObx15/phOq1Ljr5PTX2cCPY9AmZ3E="
+
+ota:
+#  password: "482e794fc2465e0644b7852c75601e24"
+
+wifi:
+  networks:
+  - ssid: !secret wifi_ssid
+    password: !secret wifi_password
+
+  # Enable fallback hotspot (captive portal) in case wifi connection fails
+  ap:
+    ssid: $friendly_name Hotspot
+    password: ""
+
+captive_portal:
+
+web_server:
+  port: 80
+
+# https://esphome.io/components/
+
+
+binary_sensor:
+
+  # ingressi digitali fisici
+  # n.5 Relè termostati, chiude a massa GND
+  - platform: gpio
+    name: "TA Camera doppia"
+    icon: mdi:thermostat
+    id: ta_camera_doppia
+    pin:
+      number: GPIO12
+      mode:
+        input: true
+        pullup: true
+      inverted: true
+    filters:
+      - delayed_on_off: 100ms # debounce
+    on_state:
+      then:
+        - button.press: check_n_set_camera_doppia
+
+  - platform: gpio
+    name: "TA Camera singola"
+    icon: mdi:thermostat
+    id: ta_camera_singola
+    pin:
+      number: GPIO14
+      mode:
+        input: true
+        pullup: true
+      inverted: true
+    filters:
+      - delayed_on_off: 100ms # debounce
+    on_state:
+      then:
+        - button.press: check_n_set_camera_singola
+
+  - platform: gpio
+    name: "TA Camera matrimoniale"
+    icon: mdi:thermostat
+    id: ta_camera_matrimoniale
+    pin:
+      number: GPIO27
+      mode:
+        input: true
+        pullup: true
+      inverted: true
+    filters:
+      - delayed_on_off: 100ms # debounce
+    on_state:
+      then:
+        - button.press: check_n_set_camera_matrimoniale
+
+  - platform: gpio
+    name: "TA Salotto"
+    icon: mdi:thermostat
+    id: ta_salotto
+    pin:
+      number: GPIO33
+      mode:
+        input: true
+        pullup: true
+      inverted: true
+    filters:
+      - delayed_on_off: 100ms # debounce
+    on_state:
+      then:
+        - button.press: check_n_set_salotto
+
+  - platform: gpio
+    name: "TA Studio"
+    icon: mdi:thermostat
+    id: ta_studio
+    pin:
+      number: GPIO32
+      mode:
+        input: true
+        pullup: true
+      inverted: true
+    filters:
+      - delayed_on_off: 100ms # debounce
+    on_state:
+      then:
+        - button.press: check_n_set_studio
+
+
+button:
+  - platform: restart
+    name: Restart $friendly_name
+
+  # ========================================================================================
+  # Definition of virtual internal button(s) for trigging check and set
+  # of the output state, call this "button.press" at every event that change a state:
+  # switches, sensors and also time.on_time (1 min) for get entering or leaving time slots.
+
+  # Operating logic represented as an 
+  # electrical circuit of the analogue equivalent.
+  # 
+  # -+-----+-------------- L
+  #  |     |
+  #  \ B   \ Enable
+  #  | o   |
+  #  | o   \ Main Sensor
+  #  | s   |
+  #  | t   \ Time Slots
+  #  |     |
+  #  +-----+
+  #        |
+  #   +----+----+
+  #   |  Output |
+  #   +----+----+
+  #        |
+  #  ------+-------------- N
+  #
+
+  - platform: template
+    internal: true
+    id: check_n_set_camera_doppia
+    name: check_n_set_camera_doppia
+    on_press:
+      if:
+        condition:
+          or:
+            - switch.is_on: boost_camera_doppia
+            - and:
+              - switch.is_on: enable_camera_doppia
+              - binary_sensor.is_on: ta_camera_doppia
+              - lambda: return isInTimeSlots( id(time_slots_camera_doppia).state );
+        then:
+          - switch.turn_on: ev_camera_doppia
+        else:
+          - switch.turn_off: ev_camera_doppia
+
+  - platform: template
+    internal: true
+    id: check_n_set_camera_singola
+    name: check_n_set_camera_singola
+    on_press:
+      if:
+        condition:
+          or:
+            - switch.is_on: boost_camera_singola
+            - and:
+              - switch.is_on: enable_camera_singola
+              - binary_sensor.is_on: ta_camera_singola
+              - lambda: return isInTimeSlots( id(time_slots_camera_singola).state );
+        then:
+          - switch.turn_on: ev_camera_singola
+        else:
+          - switch.turn_off: ev_camera_singola
+
+  - platform: template
+    internal: true
+    id: check_n_set_camera_matrimoniale
+    name: check_n_set_camera_matrimoniale
+    on_press:
+      if:
+        condition:
+          or:
+            - switch.is_on: boost_camera_matrimoniale
+            - and:
+              - switch.is_on: enable_camera_matrimoniale
+              - binary_sensor.is_on: ta_camera_matrimoniale
+              - lambda: return isInTimeSlots( id(time_slots_camera_matrimoniale).state );
+        then:
+          - switch.turn_on: ev_camera_matrimoniale_1
+          - switch.turn_on: ev_camera_matrimoniale_2
+        else:
+          - switch.turn_off: ev_camera_matrimoniale_1
+          - switch.turn_off: ev_camera_matrimoniale_2
+
+
+  - platform: template
+    internal: true
+    id: check_n_set_salotto
+    name: check_n_set_salotto
+    on_press:
+      if:
+        condition:
+          or:
+            - switch.is_on: boost_salotto
+            - and:
+              - switch.is_on: enable_salotto
+              - binary_sensor.is_on: ta_salotto
+              - lambda: return isInTimeSlots( id(time_slots_salotto).state );
+        then:
+          - switch.turn_on: ev_salotto_1_3
+        else:
+          - switch.turn_off: ev_salotto_1_3
+
+  - platform: template
+    internal: true
+    id: check_n_set_studio
+    name: check_n_set_studio
+    on_press:
+      if:
+        condition:
+          or:
+            - switch.is_on: boost_studio
+            - and:
+              - switch.is_on: enable_studio
+              - binary_sensor.is_on: ta_studio
+              - lambda: return isInTimeSlots( id(time_slots_studio).state );
+        then:
+          - switch.turn_on: ev_studio
+        else:
+          - switch.turn_off: ev_studio
+
+# per AM2320
+# https://esphome.io/components/i2c.html
+i2c:
+  sda: 21
+  scl: 22
+  scan: true
+  #id: bus_a
+
+
+sensor:
+  - platform: am2320
+    temperature:
+      name: "Temperatura Collettore"
+    humidity:
+      name: "Umidità Collettore"
+      internal: true
+    update_interval: 60s
+
+
+switch:
+
+  - platform: template
+    name: "Modalità weekend" # TODO
+    id: weekend
+    icon: mdi:party-popper
+    optimistic: True
+    restore_mode: RESTORE_DEFAULT_OFF
+
+  # *** Switch "abilitati" ***
+  - platform: template
+    name: "Termostato Camera Doppia Abilitato"
+    id: enable_camera_doppia
+    icon: mdi:toggle-switch
+    optimistic: True
+    restore_mode: RESTORE_DEFAULT_ON
+    on_turn_on:
+      then:
+        - button.press: check_n_set_camera_doppia
+    on_turn_off:
+      then:
+        - button.press: check_n_set_camera_doppia
+  
+  - platform: template
+    name: "Termostato Camera Singola Abilitato"
+    id: enable_camera_singola
+    icon: mdi:toggle-switch
+    optimistic: True
+    restore_mode: RESTORE_DEFAULT_ON
+    on_turn_on:
+      then:
+        - button.press: check_n_set_camera_singola
+    on_turn_off:
+      then:
+        - button.press: check_n_set_camera_singola
+  
+  - platform: template
+    name: "Termostato Camera Matrimoniale Abilitato"
+    id: enable_camera_matrimoniale
+    icon: mdi:toggle-switch
+    optimistic: True
+    restore_mode: RESTORE_DEFAULT_ON
+    on_turn_on:
+      then:
+        - button.press: check_n_set_camera_matrimoniale
+    on_turn_off:
+      then:
+        - button.press: check_n_set_camera_matrimoniale
+  
+  - platform: template
+    name: "Termostato Salotto Abilitato"
+    id: enable_salotto
+    icon: mdi:toggle-switch
+    optimistic: True
+    restore_mode: RESTORE_DEFAULT_ON
+    on_turn_on:
+      then:
+        - button.press: check_n_set_salotto
+    on_turn_off:
+      then:
+        - button.press: check_n_set_salotto
+  
+  - platform: template
+    name: "Termostato Studio Abilitato"
+    id: enable_studio
+    icon: mdi:toggle-switch
+    optimistic: True
+    restore_mode: RESTORE_DEFAULT_OFF
+    on_turn_on:
+      then:
+        - button.press: check_n_set_studio
+    on_turn_off:
+      then:
+        - button.press: check_n_set_studio
+
+  # *** Boost ***
+  - platform: template
+    name: "Boost Camera Doppia"
+    id: boost_camera_doppia
+    icon: mdi:fire
+    optimistic: True
+    restore_mode: ALWAYS_OFF
+    on_turn_on:
+      then:
+        - button.press: check_n_set_camera_doppia
+        - delay: 120 min
+        - switch.turn_off: boost_camera_doppia
+        - button.press: check_n_set_camera_doppia
+    on_turn_off:
+      then:
+        - button.press: check_n_set_camera_doppia
+
+  - platform: template
+    name: "Boost Camera Singola"
+    id: boost_camera_singola
+    icon: mdi:fire
+    optimistic: True
+    restore_mode: ALWAYS_OFF
+    on_turn_on:
+      then:
+        - button.press: check_n_set_camera_singola
+        - delay: 120 min
+        - switch.turn_off: boost_camera_singola
+        - button.press: check_n_set_camera_singola
+    on_turn_off:
+      then:
+        - button.press: check_n_set_camera_singola
+
+  - platform: template
+    name: "Boost Camera Matrimoniale"
+    id: boost_camera_matrimoniale
+    icon: mdi:fire
+    optimistic: True
+    restore_mode: ALWAYS_OFF
+    on_turn_on:
+      then:
+        - button.press: check_n_set_camera_matrimoniale
+        - delay: 120 min
+        - switch.turn_off: boost_camera_matrimoniale
+        - button.press: check_n_set_camera_matrimoniale
+    on_turn_off:
+      then:
+        - button.press: check_n_set_camera_matrimoniale
+
+  - platform: template
+    name: "Boost Salotto"
+    id: boost_salotto
+    icon: mdi:fire
+    optimistic: True
+    restore_mode: ALWAYS_OFF
+    on_turn_on:
+      then:
+        - button.press: check_n_set_salotto
+        - delay: 120 min
+        - switch.turn_off: boost_salotto
+        - button.press: check_n_set_salotto
+    on_turn_off:
+      then:
+        - button.press: check_n_set_salotto
+
+  - platform: template
+    name: "Boost Studio"
+    id: boost_studio
+    icon: mdi:fire
+    optimistic: True
+    restore_mode: ALWAYS_OFF
+    on_turn_on:
+      then:
+        - button.press: check_n_set_studio
+        - delay: 120 min
+        - switch.turn_off: boost_studio
+        - button.press: check_n_set_studio
+    on_turn_off:
+      then:
+        - button.press: check_n_set_studio
+
+
+  # *** Uscite del modulo a 8 relè ***
+
+  # DO1 camera doppia B1, B2
+  - platform: gpio
+    pin: GPIO23
+    name: "Riscaldamento Camera doppia"
+    id: ev_camera_doppia
+    icon: mdi:heating-coil
+
+  # DO2 camera singola B3, B4
+  - platform: gpio
+    pin: GPIO1
+    name: "Riscaldamento Camera singola"
+    id: ev_camera_singola
+    icon: mdi:heating-coil
+
+ # DO3 camera matrimoniale 1
+  - platform: gpio
+    pin: GPIO3
+    name: "Riscaldamento Camera Matrimoniale 1"
+    id: ev_camera_matrimoniale_1
+    icon: mdi:heating-coil
+
+  # DO4 camera matrimoniale 2
+  - platform: gpio
+    pin: GPIO19
+    name: "Riscaldamento Camera Matrimoniale 2"
+    id: ev_camera_matrimoniale_2
+    icon: mdi:heating-coil
+
+  # DO5 salotto 1-3
+  - platform: gpio
+    pin: GPIO18
+    name: "Riscaldamento Salotto 1-3"
+    id: ev_salotto_1_3
+    icon: mdi:heating-coil
+
+  # DO6 salotto 2
+  - platform: gpio
+    pin: GPIO17
+    name: "Riscaldamento Salotto 2"
+    id: ev_salotto_2
+    icon: mdi:heating-coil
+
+  # DO7 cucina
+  - platform: gpio
+    pin: GPIO16
+    name: "Riscaldamento Cucina"
+    id: ev_cucina
+    icon: mdi:heating-coil
+
+  # DO8 studio
+  - platform: gpio
+    pin: GPIO4
+    name: "Riscaldamento Studio"
+    id: ev_studio
+    icon: mdi:heating-coil
+
+# 
+# Uscite modulo 8 relè
+# DO1 camera doppia B1, B2
+# DO2 camera singola B3, B4
+# DO3 camera matrimoniale 1
+# DO4 camera matrimoniale 2
+# DO5 salotto 1-3
+# DO6 salotto 2
+# DO7 cucina
+# DO8 studio
+
+
+
+# n.2 liberi per termometro UART
+#  - platform: gpio
+#    pin: GPIO21
+#    name: "Uscita GPIO21"
+#    id: GPIO21
+#
+#  - platform: gpio
+#    pin: GPI22
+#    name: "Uscita GPI22"
+#    id: GPI22
+
+#  da evitare
+# https://esphome.io/guides/faq.html#why-am-i-getting-a-warning-about-strapping-pins
+#  - platform: gpio
+#    pin: GPIO0
+#    name: "Uscita GPIO0"
+#    id: GPIO0
+#
+#  - platform: gpio
+#    pin: GPIO2
+#    name: "Uscita GPIO2"
+#    id: GPIO2
+#
+#  - platform: gpio
+#    pin: GPIO15
+#    name: "Uscita GPIO15"
+#    id: GPIO15
+#
+#
+#  - platform: gpio
+#    pin: GPIO5
+#    name: "Uscita GPIO5"
+#    id: GPIO5
+
+
+text:
+    # initial_value: "17 07:00 23:59; 23456 05:30 07:30; 23456 12:00 14:00; 23456 16:00 22:00"
+    # Slots separator: "; "
+    # n. 3 field for slot separated by one white space
+    #   [1-7] 1: Sunday ... 7: Saturday
+    #   07:00 Start from 00:00 and less than Stop
+    #   23:59 Stop greater than Start and less or equal to 23:59
+
+  - platform: template
+    name: TA Time Slots Camera doppia
+    id: time_slots_camera_doppia
+    restore_value: True
+    initial_value: ""
+    optimistic: true
+    min_length: 0
+    max_length: 255 # max. is only 255
+    mode: text
+    on_value:
+      then:
+        - button.press: check_n_set_camera_doppia
+
+  - platform: template
+    name: TA Time Slots Camera singola
+    id: time_slots_camera_singola
+    restore_value: True
+    initial_value: "12345 21:30 23:59; 23456 00:00 05:30; 67 22:30 23:59; 17 00:00 08:00"
+    optimistic: true
+    min_length: 0
+    max_length: 255 # max. is only 255
+    mode: text
+    on_value:
+      then:
+        - button.press: check_n_set_camera_singola
+
+  - platform: template
+    name: TA Time Slots Camera matrimoniale
+    id: time_slots_camera_matrimoniale
+    restore_value: True
+    initial_value: "12345 21:30 23:59; 23456 00:00 05:30; 67 22:30 23:59; 17 00:00 08:00"
+    optimistic: true
+    min_length: 0
+    max_length: 255 # max. is only 255
+    mode: text
+    on_value:
+      then:
+        - button.press: check_n_set_camera_matrimoniale
+
+  - platform: template
+    name: TA Time Slots Salotto
+    id: time_slots_salotto
+    restore_value: True
+    initial_value: "23456 11:00 13:30; 12345 16:30 22:00; 17 11:30 16:29; 67 16:30 23:00"
+    optimistic: true
+    min_length: 0
+    max_length: 255 # max. is only 255
+    mode: text
+    on_value:
+      then:
+        - button.press: check_n_set_salotto
+
+  - platform: template
+    name: TA Time Slots studio
+    id: time_slots_studio
+    restore_value: True
+    initial_value: "23456 17:00 18:30; 17 11:00 16:30"
+    optimistic: true
+    min_length: 0
+    max_length: 255 # max. is only 255
+    mode: text
+    on_value:
+      then:
+        - button.press: check_n_set_studio
+
+time:
+  - platform: sntp
+    id: sntp_time  # don't rename this
+    # in case of manual_ip, dns1 and dns2 must be setted
+    timezone: Europe/Rome
+    on_time_sync:
+      if:
+        condition:
+          time.has_time:
+        then:
+          - logger.log: Time has been set and is valid!
+    on_time:
+      # Called Every 1 minute, after syncronization
+      - seconds: 0
+        minutes: /1
+        then:
+          - button.press: check_n_set_camera_doppia
+          - button.press: check_n_set_camera_singola
+          - button.press: check_n_set_camera_matrimoniale
+          - button.press: check_n_set_salotto
+          - button.press: check_n_set_studio
