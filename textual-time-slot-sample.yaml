@@ -5,6 +5,7 @@ substitutions:
 esphome:
   name: $devicename
   friendly_name: $friendly_name
+  min_version: 2023.11.4
   includes:
     - header-files/TextualTimeSlot.h
   on_boot:
@@ -24,18 +25,13 @@ logger:
 
 # Enable Home Assistant API
 api:
-#  encryption:
-#    key: "sZMjwefm7FsufeObx15/phOq1Ljr5PTX2cCPY9AmZ3E="
 
 ota:
-#  password: "482e794fc2465e0644b7852c75601e24"
 
 wifi:
   networks:
-  - ssid: !secret wifi_ssid0
-    password: !secret wifi_password0
-  - ssid: !secret wifi_ssid1
-    password: !secret wifi_password1
+  - ssid: !secret wifi_ssid
+    password: !secret wifi_password
 
   # Enable fallback hotspot (captive portal) in case wifi connection fails
   ap:
@@ -68,35 +64,36 @@ button:
     name: 3 Test now is in time slots
     on_press:
       then:
-        - button.press: check_n_set_livingroom
-  
-  # Definition of virtual internal button(s) for trigging check and set
-  # of the output state, call this "button.press" at every event that change a state:
+        - script.execute: check_n_set_livingroom
+
+
+script:
+  # Definition of script for trigging check and set
+  # of the output state, call this "script.execute" at every event that change a state:
   # switches, sensors and also time.on_time (1 min) for get entering or leaving time slots.
-  - platform: template
-    internal: true
-    id: check_n_set_livingroom
-    name: check_n_set_livingroom
-    # Operating logic represented as an 
-    # electrical circuit of the analogue equivalent.
-    # 
-    # -+-----+-------------- L
-    #  |     |
-    #  \ B   \ Enable
-    #  | o   |
-    #  | o   \ Main Sensor
-    #  | s   |
-    #  | t   \ Time Slots
-    #  |     |
-    #  +-----+
-    #        |
-    #   +----+----+
-    #   |  Output |
-    #   +----+----+
-    #        |
-    #  ------+-------------- N
-    #
-    on_press:
+
+  # Operating logic represented as an
+  # electrical circuit of the analogue equivalent.
+  # 
+  # -+-----+-------------- L
+  #  |     |
+  #  \ B   \ Enable
+  #  | o   |
+  #  | o   \ Main Sensor
+  #  | s   |
+  #  | t   \ Time Slots
+  #  |     |
+  #  +-----+
+  #        |
+  #   +----+----+
+  #   |  Output |
+  #   +----+----+
+  #        |
+  #  ------+-------------- N
+  #
+
+  - id: check_n_set_livingroom
+    then:
       if:
         condition:
           or:
@@ -121,13 +118,13 @@ switch:
     restore_mode: ALWAYS_OFF
     on_turn_on:
       then:
-        - button.press: check_n_set_livingroom
+        - script.execute: check_n_set_livingroom
         - delay: 120 min
         - switch.turn_off: boost_livingroom
-        - button.press: check_n_set_livingroom
+        - script.execute: check_n_set_livingroom
     on_turn_off:
       then:
-        - button.press: check_n_set_livingroom
+        - script.execute: check_n_set_livingroom
 
   - platform: template
     name: "Enable Livingroom"
@@ -137,10 +134,10 @@ switch:
     restore_mode: RESTORE_DEFAULT_ON
     on_turn_on:
       then:
-        - button.press: check_n_set_livingroom
+        - script.execute: check_n_set_livingroom
     on_turn_off:
       then:
-        - button.press: check_n_set_livingroom
+        - script.execute: check_n_set_livingroom
 
   # in a real case this will be a binary_sensor,
   # in this test case a switch is used.
@@ -152,14 +149,14 @@ switch:
     # for switch:
     on_turn_on:
       then:
-        - button.press: check_n_set_livingroom
+        - script.execute: check_n_set_livingroom
     on_turn_off:
       then:
-        - button.press: check_n_set_livingroom
+        - script.execute: check_n_set_livingroom
     # for binary_sensor:
     # on_state:
     #   then:
-    #     - button.press: check_n_set_livingroom
+    #     - script.execute: check_n_set_livingroom
 
   # the output:
   - platform: gpio
@@ -184,7 +181,7 @@ text:
     mode: text
     on_value:
       then:
-        - button.press: check_n_set_livingroom
+        - script.execute: check_n_set_livingroom
 
 
 time:
@@ -202,4 +199,4 @@ time:
       - seconds: 0
         minutes: /1
         then:
-          - button.press: check_n_set_livingroom
+          - script.execute: check_n_set_livingroom
